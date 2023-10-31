@@ -10,13 +10,15 @@ import os
 
 def get_offset_timecodes(search_string, offset_seconds):
     # Read the .ods file.
-    df = pd.read_excel(r"C:\Users\olath\Downloads\elite_time_codes.ods", engine="odf")
+    #CHOOSE ONE
+    #df = pd.read_excel(r"C:\Users\olath\Downloads\elite_time_codes.ods", engine="odf") #this is for elites
+    #df = pd.read_excel(r"C:\Users\olath\Downloads\nonelite_time_codes.ods", engine="odf") #this is for nonelites
     
     # Filter rows where "Event Description" contains the specified string. 
     filtered_rows = df[df['Event Description'].str.contains(search_string, na=False, regex=False)]
     
     # Extract "Seconds in video" and add the offset.
-    offset_values = filtered_rows['Seconds in video'] + offset_seconds
+    offset_values = filtered_rows['Seconds in video'].astype(int) + offset_seconds
     
     # Convert the updated seconds to 'hh:mm:ss' format.
     offset_timecodes = []
@@ -37,13 +39,21 @@ def extract_data_from_timestamps(input_csv, timestamps):
     # Loop over each timestamp.
     for timestamp in timestamps:
         # Find the index of the equivalent timestamp in the dataset.
-        idx = data[data['DateTime'] == '2023-07-18 '+timestamp+'.999+00:00'].index[0]
+        #CHOOSE ONE
+        #idx = data[data['DateTime'] == '2023-07-18 '+timestamp+'.999+00:00'].index[0] #this is for elites
+        #idx = data[data['DateTime'] == '2023-07-16 '+timestamp+'.999+00:00'].index[0] #this if for nonelites
 
         # Extract given number of rows before and after the found index.
-        extracted_data = data.iloc[idx - 640: idx + 640]
+        extracted_data1 = data.iloc[idx - 640: idx + 640]
+        idx2 = idx - 128
+        extracted_data2 = data.iloc[idx2 - 640: idx2 + 640]
+        idx3 = idx + 128
+        extracted_data3 = data.iloc[idx3 - 640: idx3 + 640]
 
         # Append the extracted data to the list.
-        extracted_data_list.append(extracted_data)
+        extracted_data_list.append(extracted_data1)
+        extracted_data_list.append(extracted_data2)
+        extracted_data_list.append(extracted_data3)
 
     # Concatenate all extracted dataframes.
     combined_data = pd.concat(extracted_data_list)
@@ -61,6 +71,11 @@ def create_and_save_spectrograms(df, window_size, step_size, filename):
     accel_x = df[' Vert Accelerometer'].to_numpy()
     accel_y = df[' Lat Accelerometer'].to_numpy()
     accel_z = df[' Long Accelerometer'].to_numpy()
+
+    #Normalizing values
+    accel_x = accel_x/np.linalg.norm(accel_x)
+    accel_y = accel_y/np.linalg.norm(accel_y)
+    accel_z = accel_z/np.linalg.norm(accel_z)
     
     # Number of windows.
     num_windows = (len(df) - window_size) // step_size + 1
@@ -78,9 +93,9 @@ def create_and_save_spectrograms(df, window_size, step_size, filename):
         window_z = accel_z[start_idx:end_idx]
         
         # Creating spectrograms.
-        f_x, t_x, Sxx_x = spectrogram(window_x, window = 'hamming', fs=fs, nperseg = 128)
-        f_y, t_y, Sxx_y = spectrogram(window_y, window = 'hamming', fs=fs, nperseg = 128)
-        f_z, t_z, Sxx_z = spectrogram(window_z, window = 'hamming', fs=fs, nperseg = 128)
+        f_x, t_x, Sxx_x = spectrogram(window_x, window = 'hamming', fs=fs, nperseg = 64)
+        f_y, t_y, Sxx_y = spectrogram(window_y, window = 'hamming', fs=fs, nperseg = 64)
+        f_z, t_z, Sxx_z = spectrogram(window_z, window = 'hamming', fs=fs, nperseg = 64)
 
         # Concatenating spectrograms.
         combined_spectrogram = np.concatenate((Sxx_x, Sxx_y, Sxx_z), axis=-1)
@@ -99,22 +114,27 @@ def create_and_save_spectrograms(df, window_size, step_size, filename):
         plt.close()
 
 
+#CHOOSE ONE
+#input_csv_path = r'C:\Users\olath\Downloads\transfer_77906_files_034aaaa9\Trimmed_Synched_LinearDriftCorrect\Elite4-acc_eq-linear_drift_correct.csv' #this is for elites
+#input_csv_path = r'C:\Users\olath\Downloads\Trimmed_Synched_LinearDriftCorrect\NonElite4\NonElite4-acc_eq-linear_drift_correct.csv' #this is for nonelites
 
-input_csv_path = r'C:\Users\olath\Downloads\transfer_77906_files_034aaaa9\Trimmed_Synched_LinearDriftCorrect\Elite1-acc_eq-linear_drift_correct.csv'
 
-example_search_string = "*01A"
-#Correct offset of EQ is 57703
-example_offset_seconds = 57715
+#Correct offset of EQ Elite is 57703
+#Correct offset of EQ Non elite is 55129
+#CHOOSE ONE
+#example_offset_seconds = 55129
 
 window_size = 1280
 step_size = 1280
-out_file_name = 'elite1_eq_nonspikes_5sec'
+out_file_name = 'nonelite4_eq_attack_5sec_normalized_64_onlygood_3samples'
 
 
-timestamps = get_offset_timecodes(example_search_string, example_offset_seconds)
-#print(timestamps)
+#Enter correct label as string
+#example_search_string = "*01AM+" or "*01AM#"  or "*01AM!"
+timestamps = get_offset_timecodes("*04AM#", example_offset_seconds)
+
 extracted_data = extract_data_from_timestamps(input_csv_path, timestamps)
-#print(extracted_data)
+
 create_and_save_spectrograms(extracted_data[[" Vert Accelerometer", " Lat Accelerometer", " Long Accelerometer"]], window_size, step_size, out_file_name)
 
 
